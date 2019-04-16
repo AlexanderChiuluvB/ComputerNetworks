@@ -36,6 +36,7 @@ host = socket.gethostbyname(socket.gethostname())
 # server side 与端口 8888绑定
 s.bind(('localhost', 8888))
 
+
 #使用多线程，因此用一个队列来存储server side接受的信息
 recvPackets = Queue.Queue()
 
@@ -66,9 +67,25 @@ def sendMessage(sock,clientAddr,messType,actionType,data):
     sock.sendto(sendData,clientAddr)
 
 
+def readLoginInfo(file):
+    """
+    读取用户的账号和密码
+    :param file:
+    :return:
+    """
+    dict = {}
+    #逐行读取
+
+    with open (file,'rb') as f:
+        line1 = f.readline()
+        while line1!='':
+            idx = line1.find('@@')
+            dict[line1[0:idx]] = line1[idx+2:len(line1)]
+            line1 = f.readline()
+    return dict
 
 def write_to_file(user_password):
-    pass
+
 
 def write_time(user):
     pass
@@ -83,101 +100,93 @@ def data_process(data,header,sock,addr):
     :return:
     """
 
-    if header == '00':
+    if header == '注册':
         #login successful
-        index = data.find('@')
+        index = data.find('@@')
         user =  data[:index]
         password = data[index+2:]
         if user in user_password:
-            sendMessage(sock,addr,'0','04','用户名已经被注册')
+            sendMessage(sock,addr,'0','4','用户名已经被注册')
             return
-        sendMessage(sock,addr,'0','08','注册成功')
+        sendMessage(sock,addr,'0','8','注册成功')
         user_password[user] = password
         write_to_file(user_password)
         write_time(user)
 
-    elif header =='03':
+    elif header =='登陆':
         #用户登录
-        index = data.find('@')
+        index = data.find('@@')
         user =  data[:index]
         password = data[index+2:]
         if user not in user_password:
-            sendMessage(sock,addr,'0','02','用户不存在')
+            sendMessage(sock,addr,'0','2','用户不存在')
             return
         if user_password[user]!=password:
-            sendMessage(sock,addr,'0','01','密码错误')
+            sendMessage(sock,addr,'0','1','密码错误')
             return
         for u in user_dict:
             if user_dict[u] == user:
-                sendMessage(sock,u,'0','03','用户已经在线')
+                sendMessage(sock,u,'0','3','用户已经在线')
                 return
-        user_time[user] = datetime.datetime.now()
-        sendMessage(sock,addr,'0','00','注册成功')
+        #user_time[user] = datetime.datetime.now()
+        sendMessage(sock,addr,'0','0','注册成功')
         for u in user_dict:
-            if u != user:
-                sendMessage(sock,u,'0','05',user)
-        user_dict[addr]  =  user
+            if u != user: #通知其他用户该用户上线了
+                sendMessage(sock,u,'0','5',user)
+        user_dict[addr] = user
         time.sleep(1)
 
+        online_user = ''
+        for u in user_dict:
+            online_user += user_dict[u]+'#'
+        #剔除最后一个#
+        online_user = online_user[0:len(online_user)-1]
+        #server side 把 所有在线用户发送给client side
+        sendMessage(sock,addr,'0','9',online_user)
+        time.sleep(1)
 
+        available_room = ''
+        for r in room_list:
+            available_room += r + '#'
+        # 剔除最后一个#
+        available_room = available_room[0:len(available_room) - 1]
+        # server side 把 所有房间发送给client side
+        sendMessage(sock, addr, '0', 'A', available_room)
 
-
-
-    elif header =='02':
-        #user not exists
-        self.client.info = '2'
-    elif header == '03':
-        #user already online
-        self.client.info = '3'
-    elif header == '04':
-        #username already exists
-        self.client.info = '4'
-    elif header =='05':
-        #user login
-        self.client.main_app.all_user.insert(tkinter.END,data)
-    elif header == '06':
-        #user log out
-        self.client.info = '6'
-    elif header == '07':
+    elif header == '新房间':
         #create new room
-        self.client.main_app.allroom.insert(tkinter.END,data)
-    elif header =='08':
-        #register successful
-        self.client.info ='8'
+        room_list.append(data)
+        room_user[data] = []
+        for c in all_addr:
+            sendMessage(sock,c,'0','7',data)
 
-    elif header =='09':
-        #display all online users
-        alluser = data.split('#')
-        for u in alluser:
-            if u != '':
-                self.client.main_app.all_user.insert(tkinter.END,data)
+    elif header =='进入房间':
 
-    elif header == '10':
+        room_user[data].append(addr)
 
-        #display all room
+    elif header =='退出房间':
+        if addr in room_user[data]:
+            room_user[data].remove(addr)
 
-        allroom = data.split('#')
-        for r in allroom:
-            if r != '':
-                self.client.main_app.all_room.insert(tkinter.END,r)
+    elif header == '房间聊天':
+        room_name = data[0:data.find('@@')]
+        message = data[data.find('@@')+2:]
+        for addr in room_user[room_name]:
+            #可以在这里添加时间
+            sendMessage(sock,addr,'1','2','%s#%s: %s\n' % (room_name,user_dict[addr],message))
 
-    elif header == '11':
-        #主页界面信息
-        self.client.main_app.HallText.insert(tkinter.END,data)
+    elif header == '私人消息':
+        #对方名称
+        user_name = data[0:data.find('@@')]
+        message = data[data.find('@@')+2:]
+        for addr in all_addr:
+            if user_dict[addr] == user_name:
+                sendMessage(sock,addr,'1','3','%s#%s: %s\n' % (user_name,user_name,message))
+                break
 
-    elif header =='12':
-        #房间信息
-
-        roomIndex = data.find('#')
-        roomName = data[0:roomIndex]
-        message = data[roomIndex+1:]
-        if roomName in self.client.roomList:
-            #把信息插入到房间信息界面上
-            self.client.roomDict[roomName].main_text.insert(tkinter.END,message)
-
-    elif header =='13':
-        #私聊
-        userIndex = da
+    elif header == '大厅信息 ':
+        for addr in all_addr:
+            sendMessage(sock,addr,'1','1','%s: %s\n' % (user_dict[addr],data))
 
 
 def process(socket,recvPackets):
@@ -246,16 +255,14 @@ def process(socket,recvPackets):
                         header = ''
                         flag = False
 
-
-    #socket.close()
-
-
+    socket.close()
 
 
 
 
 if __name__ == "__main__":
 
+    user_password = readLoginInfo(r'./loginInfo.txt')
     thread = threading.Thread(target = recvData,args=(s,recvPackets))
     thread.start()
     process(s,recvPackets)
