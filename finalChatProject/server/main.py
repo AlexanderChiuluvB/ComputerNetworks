@@ -27,6 +27,9 @@ room_user = {}
 #保存用户账号密码
 user_password = {}
 
+#a txt that saves the login info
+password_file = r'./loginInfo.txt'
+
 #保存用户在线时间
 user_time = {}
 
@@ -85,6 +88,9 @@ def readLoginInfo(file):
     return dict
 
 def write_to_file(user_password):
+    with open(password_file,'wb') as f:
+        for u in user_password:
+            f.write(u+'@@'+user_password[u]+'\n')
 
 
 def write_time(user):
@@ -262,7 +268,7 @@ def process(socket,recvPackets):
 
 if __name__ == "__main__":
 
-    user_password = readLoginInfo(r'./loginInfo.txt')
+    user_password = readLoginInfo(password_file)
     thread = threading.Thread(target = recvData,args=(s,recvPackets))
     thread.start()
     process(s,recvPackets)
