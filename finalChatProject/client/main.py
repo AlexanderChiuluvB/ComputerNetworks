@@ -12,11 +12,11 @@ IP = 'localhost'
 PORT = 8888
 
 class client:
-    def __init__(self,client):
+    def __init__(self,p):
         self.IP = IP
         self.PORT = PORT
         self.connecting = True
-        self.client = client
+        self.client = p
         self.socket = None
         self.ADDR = (self.IP,self.PORT)
 
@@ -67,7 +67,7 @@ class client:
                 if u != '':
                     self.client.main_app.all_user.insert(tkinter.END,data)
 
-        elif header == '10':
+        elif header == '0A':
 
             #display all room
 
@@ -86,7 +86,7 @@ class client:
             roomIndex = data.find('#')
             roomName = data[0:roomIndex]
             message = data[roomIndex+1:]
-            if roomName in self.client.roomList:
+            if roomName in self.client.roomDict:
                 #把信息插入到房间信息界面上
                 self.client.roomDict[roomName].main_text.insert(tkinter.END,message)
 
@@ -97,7 +97,7 @@ class client:
             message = data[userIndex+1:]
 
             #如果已经正在私聊
-            if self.client.userDict.has_key(userName):
+            if userName in self.client.userDict:
                 self.client.userDict[userName].main_text.insert(tkinter.END,message)
             #否则创建新窗口
             else:
@@ -183,7 +183,7 @@ class client:
         try:
             self.socket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
             host = socket.gethostbyname(socket.gethostname())
-            port = random.randint(6000,8888) #随机为客户端分配一个端口号
+            port = random.randint(6000,8887) #随机为客户端分配一个端口号
             self.socket.bind((host,port))
         except Exception:
             raise
@@ -197,3 +197,34 @@ class client:
         if self.socket:
             self.socket.shutdown(True)
 
+
+
+class App:
+    
+    def __init__(self):
+        self.sock = client(p=self)
+        #LoginApp define in gui.py
+        self.gui = LoginApp(p = self)
+        self.text = None
+        self.info = None
+        self.main_app = None #大厅界面pointer
+        self.roomDict = {}
+        self.userDict = {}
+    def show(self):
+        self.gui.mainloop()
+    def close(self):
+        self.gui.quit()
+
+
+
+if __name__ == '__main__':
+    try:
+        app = App()
+        app.show()
+    except Exception:
+        raise
+    finally:
+        app.sock.close()
+        app.close()
+        
+    
