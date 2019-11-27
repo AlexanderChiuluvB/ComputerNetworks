@@ -18,7 +18,6 @@ all_addr = set()
 #key: address value: name of user
 user_dict={}
 
-
 #save the name of all the room
 room_list = []
 
@@ -32,10 +31,10 @@ user_password = {}
 user_time = {}
 
 #UDP socket
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #UDP
 host = socket.gethostbyname(socket.gethostname())
-# server side 与端口 8888绑定
-s.bind(('localhost', 8899))
+# server side 与端⼝ 8888绑定
+s.bind(('localhost', 8888))
 
 #使用多线程，因此用一个队列来存储server side接受的信息
 recvPackets = Queue.Queue()
@@ -145,7 +144,6 @@ def data_process(data,header,sock,client_addr,user_password):
 
     elif header == '04':
         #进入房间 data 是房间名字
-
 
         all_room_user = room_user[data]
         for addr in all_room_user:
